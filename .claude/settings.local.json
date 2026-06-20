@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//private/tmp/docx_project/**)",
+      "Read(//private/tmp/**)",
+      "Bash(python3 '/Users/nihal_dharmaraj/Library/Application Support/Claude/local-agent-mode-sessions/skills-plugin/2b83fd4f-ee5f-4f89-b2df-0b51fe517cb8/58fb865c-f718-4d13-b851-bc727f59feba/skills/docx/scripts/office/validate.py' /tmp/Simulacrum_Project_Report_30075680.docx)"
+    ]
+  }
+}

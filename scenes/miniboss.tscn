@@ -1,0 +1,7 @@
+[gd_scene format=4 uid="uid://miniboss_simulacrum"]
+
+[ext_resource type="PackedScene" uid="uid://enemy_simulacrum" path="res://scenes/enemy.tscn" id="1_enemy_base"]
+
+[node name="Miniboss" instance=ExtResource("1_enemy_base")]
+max_health = 50
+body_color = Color(0.9, 0.5, 0.1, 1)

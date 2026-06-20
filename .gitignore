@@ -1,0 +1,10 @@
+# Godot
+.godot/
+*.import
+*.uid
+
+# Asset holder — too large for GitHub (2.1GB)
+asset-holder/
+
+# OS
+.DS_Store

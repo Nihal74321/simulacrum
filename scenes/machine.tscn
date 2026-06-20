@@ -1,0 +1,42 @@
+[gd_scene format=4 uid="uid://machine_simulacrum"]
+
+[ext_resource type="Script" path="res://scripts/machine.gd" id="1_machine"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_body"]
+size = Vector2(32, 24)
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_mouse"]
+size = Vector2(38, 30)
+
+[node name="Machine" type="StaticBody2D"]
+script = ExtResource("1_machine")
+
+[node name="Outline" type="Polygon2D" parent="."]
+z_index = 1
+polygon = PackedVector2Array(-19, -27, 19, -27, 19, 3, -19, 3)
+color = Color(1, 0.85, 0, 1)
+visible = false
+
+[node name="Body" type="Polygon2D" parent="."]
+polygon = PackedVector2Array(-16, -24, 16, -24, 16, 0, -16, 0)
+color = Color(0.35, 0.28, 0.18, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2(0, -12)
+shape = SubResource("RectangleShape2D_body")
+
+[node name="NameLabel" type="Label" parent="."]
+position = Vector2(-36, -40)
+size = Vector2(72, 14)
+horizontal_alignment = 1
+text = "Machine"
+theme_override_font_sizes/font_size = 6
+
+[node name="MouseArea" type="Area2D" parent="."]
+collision_layer = 4
+collision_mask = 0
+input_pickable = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="MouseArea"]
+position = Vector2(0, -12)
+shape = SubResource("RectangleShape2D_mouse")

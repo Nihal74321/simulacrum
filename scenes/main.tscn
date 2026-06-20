@@ -1,0 +1,34 @@
+[gd_scene format=4 uid="uid://dv5rmct24b844"]
+
+[ext_resource type="Script" uid="uid://clsabcmpdh4um" path="res://scripts/main.gd" id="0_main"]
+[ext_resource type="TileSet" uid="uid://qlxhfl2sgho5" path="res://resources/tileset.tres" id="1_o5qli"]
+[ext_resource type="PackedScene" uid="uid://ctrpe21f7lnn1" path="res://scenes/player.tscn" id="2_0wfyh"]
+[ext_resource type="PackedScene" path="res://scenes/hud.tscn" id="3_hud"]
+[ext_resource type="PackedScene" path="res://scenes/inventory_ui.tscn" id="4_invui"]
+[ext_resource type="PackedScene" path="res://scenes/machine.tscn" id="6_machine"]
+
+[node name="First Room" type="Node2D" unique_id=854817820]
+script = ExtResource("0_main")
+
+[node name="TileMapLayer" type="TileMapLayer" parent="." unique_id=701489463]
+position = Vector2(8, 122)
+tile_map_data = PackedByteArray("AAD///v/AAAFAAEAAAD///z/AAAFAAEAAAD///3/AAAFAAEAAAD///7/AAAFAAEAAAD/////AAAFAAEAAAD//wAAAAAFAAEAAAAAAPv/AAAFAAEAAAAAAPz/AAAFAAEAAAAAAP3/AAAFAAEAAAAAAP7/AAAFAAEAAAAAAP//AAAFAAEAAAAAAAAAAAAFAAEAAAABAPv/AAAFAAEAAAABAPz/AAAFAAEAAAABAP3/AAAFAAEAAAABAP7/AAAFAAEAAAABAP//AAAFAAEAAAABAAAAAAAFAAEAAAACAPv/AAAFAAEAAAACAPz/AAAFAAEAAAACAP3/AAAFAAEAAAACAP7/AAAFAAEAAAACAP//AAAFAAEAAAACAAAAAAAFAAEAAAADAPv/AAAFAAEAAAADAPz/AAAFAAEAAAADAP3/AAAFAAEAAAADAP7/AAAFAAEAAAADAP//AAAFAAEAAAADAAAAAAAFAAEAAAAEAPv/AAAFAAEAAAAEAPz/AAAFAAEAAAAEAP3/AAAFAAEAAAAEAP7/AAAFAAEAAAAEAP//AAAFAAEAAAAEAAAAAAAFAAEAAAA=")
+tile_set = ExtResource("1_o5qli")
+
+[node name="Player" parent="." unique_id=1110868445 instance=ExtResource("2_0wfyh")]
+position = Vector2(47, 117)
+
+[node name="SimulacrumEngine" parent="." unique_id=110440907 instance=ExtResource("6_machine")]
+position = Vector2(47, 175)
+machine_name = "Simulacrum Engine"
+machine_color = Color(0.2, 0.35, 0.5, 1)
+
+[node name="CraftingBench" parent="." instance=ExtResource("6_machine")]
+position = Vector2(-113, 175)
+machine_name = "Crafting Bench"
+machine_color = Color(0.22, 0.45, 0.22, 1)
+starts_broken = false
+
+[node name="HUD" parent="." unique_id=960975979 instance=ExtResource("3_hud")]
+
+[node name="InventoryUI" parent="." unique_id=280571010 instance=ExtResource("4_invui")]

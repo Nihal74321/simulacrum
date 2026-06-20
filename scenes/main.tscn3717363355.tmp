@@ -1,0 +1,62 @@
+[gd_scene format=3 uid="uid://dtu2txas8qx5g"]
+
+[ext_resource type="Script" uid="uid://bbx5kwpnf81xg" path="res://scripts/camera.gd" id="1_0wfyh"]
+[ext_resource type="Script" uid="uid://cifow3oxhkgg0" path="res://scripts/player.gd" id="1_o5qli"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_0wfyh"]
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_sugp2"]
+
+[sub_resource type="Environment" id="Environment_0wfyh"]
+background_mode = 1
+
+[node name="Main" type="Node3D" unique_id=733226258]
+
+[node name="IsometricCamera" type="Camera3D" parent="." unique_id=456522610 node_paths=PackedStringArray("target")]
+transform = Transform3D(0.70710677, 0.4055798, 0.579228, 0, 0.81915206, -0.57357645, -0.70710677, 0.4055798, 0.579228, -10, 14, -10)
+projection = 1
+size = 14.0
+script = ExtResource("1_0wfyh")
+target = NodePath("../Player")
+
+[node name="Room" type="Node3D" parent="." unique_id=1223992321]
+
+[node name="CSGBox3D" type="CSGBox3D" parent="." unique_id=839048093]
+use_collision = true
+size = Vector3(20, 0.2, 20)
+
+[node name="wall1" type="CSGBox3D" parent="." unique_id=247431086]
+transform = Transform3D(-4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 0, 0, 1, -10, 5, 0)
+use_collision = true
+size = Vector3(10, 0.2, 20)
+
+[node name="wall2" type="CSGBox3D" parent="." unique_id=1194064111]
+transform = Transform3D(-4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 0, 0, 1, 10, 5, 0)
+use_collision = true
+size = Vector3(10, 0.2, 20)
+
+[node name="wall3" type="CSGBox3D" parent="." unique_id=209971401]
+transform = Transform3D(1.9106855e-15, -4.371139e-08, -1, -1, -4.371139e-08, 0, -4.371139e-08, 1, -4.371139e-08, 0, 5, 10)
+use_collision = true
+size = Vector3(10, 0.2, 20)
+
+[node name="wall4" type="CSGBox3D" parent="." unique_id=413912205]
+transform = Transform3D(1.9106855e-15, -4.371139e-08, -1, -1, -4.371139e-08, 0, -4.371139e-08, 1, -4.371139e-08, 0, 5, -10)
+use_collision = true
+size = Vector3(10, 0.2, 20)
+
+[node name="Player" type="CharacterBody3D" parent="." unique_id=2127020172]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+script = ExtResource("1_o5qli")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Player" unique_id=646463964]
+shape = SubResource("CapsuleShape3D_0wfyh")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Player" unique_id=1925591889]
+mesh = SubResource("CapsuleMesh_sugp2")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=339029943]
+transform = Transform3D(-0.5962248, 0.7088458, -0.3769, 4.1042508e-08, 0.46947157, 0.88294756, 0.8028175, 0.5264352, -0.27991062, -7, 12, -4)
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=87317537]
+environment = SubResource("Environment_0wfyh")

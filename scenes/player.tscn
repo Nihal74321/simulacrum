@@ -1,0 +1,23 @@
+[gd_scene format=4 uid="uid://ctrpe21f7lnn1"]
+
+[ext_resource type="Script" path="res://scripts/player.gd" id="1_3vyb7"]
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_player"]
+radius = 5.0
+height = 10.0
+
+[node name="Player" type="Node2D" unique_id=1110868445]
+
+[node name="CharacterBody2D" type="CharacterBody2D" parent="." unique_id=247084604]
+script = ExtResource("1_3vyb7")
+
+[node name="Body" type="Polygon2D" parent="CharacterBody2D" unique_id=312847001]
+polygon = PackedVector2Array(-8, -12, 8, -12, 8, 12, -8, 12)
+color = Color(0.2, 0.45, 1, 1)
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="CharacterBody2D" unique_id=3012847193]
+position = Vector2(0, 4)
+shape = SubResource("CapsuleShape2D_player")
+
+[node name="Camera2D" type="Camera2D" parent="CharacterBody2D" unique_id=2133227621]
+zoom = Vector2(3, 3)
