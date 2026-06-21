@@ -841,7 +841,7 @@ func _process_command(cmd: String) -> void:
 			GameManager.home_position = Vector2(INF, INF)
 			GameManager.feedback_requested.emit("Home cleared.")
 	elif lower == "give all":
-		for tool_name: String in ["Pickaxe", "Hammer", "Axe", "Sickle", "Sword", "Spear"]:
+		for tool_name: String in ["Pickaxe", "Hammer", "Axe", "Sickle", "Great Axe"]:
 			Inventory.add_item({"name": tool_name, "description": "", "quantity": 1})
 		GameManager.feedback_requested.emit("Received all tools.")
 	elif lower.begins_with("give "):
@@ -940,7 +940,8 @@ func _canonicalize_item(raw: String) -> String:
 		"pickaxe":              return "Pickaxe"
 		"hammer":               return "Hammer"
 		"sickle":               return "Sickle"
-		"sword":                return "Sword"
+		"sword":                return "Great Axe"
+		"great axe":            return "Great Axe"
 		"axe":                  return "Axe"
 		"log":                  return "Log"
 		"rock":                 return "Rock"
@@ -958,7 +959,6 @@ func _canonicalize_item(raw: String) -> String:
 		"gold plate":           return "Gold Plate"
 		"steel":                return "Steel"
 		"knowledge fragment", "fragment": return "Knowledge Fragment"
-		"spear":                return "Spear"
 		"forge":                return "Forge"
 		"anvil":                return "Anvil"
 		"extrusion machine", "extrusion": return "Extrusion Machine"
@@ -1287,7 +1287,7 @@ func _refresh_hint_page() -> void:
 		row.add_child(lbl)
 
 		var btn := Button.new()
-		const TOOLS_SET: Array[String] = ["Pickaxe", "Hammer", "Sickle", "Sword", "Axe"]
+		const TOOLS_SET: Array[String] = ["Pickaxe", "Hammer", "Sickle", "Axe"]
 		var give_qty: int = 1 if item_name in TOOLS_SET else 10
 		btn.text = "Give" if give_qty == 1 else "Give ×10"
 		btn.add_theme_font_size_override("font_size", 7)

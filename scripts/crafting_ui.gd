@@ -21,15 +21,6 @@ const RECIPES: Array[Dictionary] = [
 		prereq_task = -1,
 	},
 	{
-		id          = "spear",
-		name        = "Spear",
-		description = "Long-reach weapon. 1.5× attack range, 3 damage.",
-		ingredients = [{"item": "Log", "qty": 2}, {"item": "Iron Plate", "qty": 1}],
-		result      = {"item": "Spear", "qty": 1},
-		unique      = true,
-		prereq_task = -1,
-	},
-	{
 		id          = "forge",
 		name        = "Forge",
 		description = "Smelts ores into heated metals. Fuel: Heated Coal.",

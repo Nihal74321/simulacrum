@@ -2,12 +2,12 @@ extends CanvasLayer
 
 # Items that cannot go in the hotbar
 const UNEQUIPPABLE: Array[String] = [
-	"Knowledge Fragment", "Sword", "Spear",
+	"Knowledge Fragment", "Great Axe",
 	"Forge", "Anvil", "Extrusion Machine",
 ]
 
 # Weapons that go in the weapon slot (not hotbar)
-const WEAPONS: Array[String] = ["Sword", "Spear"]
+const WEAPONS: Array[String] = ["Great Axe"]
 
 var _panel: Panel
 var _inv_container: VBoxContainer

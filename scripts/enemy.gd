@@ -8,7 +8,6 @@ const ATTACK_COOLDOWN: float = 1.0
 const PLAYER_ATTACK_DAMAGE: int = 5
 # Weapon attack ranges (px from player centre to enemy centre)
 const SWORD_RANGE: float = 40.0   # ~2.5 tiles
-const SPEAR_RANGE: float = 60.0   # 1.5× sword
 const HOVER_RADIUS: float = 13.0
 # Body bounds: (-6.4,-9.6) to (6.4,9.6) — 20% smaller than original
 const OUTLINE_RECT: Rect2 = Rect2(-7, -10, 14, 20)
@@ -81,12 +80,9 @@ func _on_mouse_input(_v: Node, event: InputEvent, _shape: int) -> void:
 		var attack_range: float
 		var damage: int
 		match weapon:
-			"Sword":
+			"Great Axe":
 				attack_range = SWORD_RANGE
 				damage = PLAYER_ATTACK_DAMAGE
-			"Spear":
-				attack_range = SPEAR_RANGE
-				damage = 3
 			_:
 				GameManager.feedback_requested.emit("I can't attack with that.")
 				return

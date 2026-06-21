@@ -64,7 +64,7 @@ func get_sim_cost() -> int:
 	return 1250 * (1 << (sim_iterations - 1))
 
 const _GODMODE_ITEMS: Array = [
-	["Pickaxe", 1], ["Hammer", 5], ["Axe", 1], ["Sickle", 1], ["Sword", 1], ["Spear", 1],
+	["Pickaxe", 1], ["Hammer", 5], ["Axe", 1], ["Sickle", 1], ["Great Axe", 1],
 	["Log", 999], ["Rock", 999], ["Coal", 999], ["Heated Coal", 99],
 	["Iron Ore", 999], ["Copper Ore", 999], ["Gold Ore", 999],
 	["Heated Iron Ore", 99], ["Heated Copper Ore", 99], ["Heated Gold Ore", 99],

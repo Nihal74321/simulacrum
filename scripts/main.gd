@@ -407,7 +407,7 @@ func _spawn_trees() -> void:
 				continue
 			if _near_vent(x, y):
 				continue
-			if rng.randf() < 0.165:
+			if rng.randf() < 0.0825:
 				var world_pos := tilemap.to_global(tilemap.map_to_local(Vector2i(x, y)))
 				var tree: Node2D = TREE_SCRIPT.new()
 				tree.position = world_pos
