@@ -67,7 +67,8 @@ func save_game(show_feedback: bool = true) -> void:
 		"hotbar_selected"  : GameManager.hotbar_selected,
 		"equipped_weapon"  : GameManager.equipped_weapon,
 		"active_boons"     : Array(GameManager.active_boons),
-		"boon_fragments"   : GameManager.boon_fragments,
+		"boon_fragments"                : GameManager.boon_fragments,
+		"workstation_fragments_pending" : GameManager.workstation_fragments_pending,
 		"home_x"           : home.x,
 		"home_y"           : home.y,
 		"sim_iterations"   : GameManager.sim_iterations,
@@ -113,7 +114,8 @@ func load_game() -> void:
 	GameManager.task_index        = int(data.get("task_index", 0))
 	GameManager.hotbar_selected   = int(data.get("hotbar_selected", 0))
 	GameManager.equipped_weapon   = str(data.get("equipped_weapon", ""))
-	GameManager.boon_fragments    = int(data.get("boon_fragments", 0))
+	GameManager.boon_fragments                    = int(data.get("boon_fragments", 0))
+	GameManager.workstation_fragments_pending     = int(data.get("workstation_fragments_pending", 0))
 	GameManager.sim_iterations    = int(data.get("sim_iterations", 0))
 	GameManager.sim_engine_fixed  = bool(data.get("sim_engine_fixed", false))
 	GameManager.home_position     = Vector2(

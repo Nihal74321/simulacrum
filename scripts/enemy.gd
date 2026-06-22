@@ -94,7 +94,12 @@ func _on_mouse_input(_v: Node, event: InputEvent, _shape: int) -> void:
 				attack_range = BROADAXE_RANGE
 				damage = 10
 			"Crossbow":
-				attack_range = CROSSBOW_RANGE
+				# Range = half-diagonal of the visible viewport in world coords
+				var p2 := get_tree().get_first_node_in_group("player") as Node2D
+				var cam := p2.get_node_or_null("Camera2D") as Camera2D if p2 != null else null
+				var zoom_x := cam.zoom.x if cam != null else 3.0
+				var vp_size := get_viewport().get_visible_rect().size
+				attack_range = vp_size.length() * 0.5 / zoom_x
 				damage = 4
 				cooldown = 2.0
 			_:
@@ -126,57 +131,30 @@ func _on_mouse_input(_v: Node, event: InputEvent, _shape: int) -> void:
 		take_damage(final_dmg)
 
 func _fire_crossbow_projectile(from_pos: Vector2, missed: bool, dmg: int = 4) -> void:
-	var proj := Node2D.new()
-	proj.z_index = 20
-	var to_pos := global_position  # enemy position = target
+	var to_pos := global_position
 	var dir := (to_pos - from_pos).normalized()
-	# Miss: fly 80px past the target
 	var end_pos := (to_pos + dir * 80.0) if missed else to_pos
 
-	var elapsed := 0.0
-	var travel_time := from_pos.distance_to(end_pos) / 480.0  # 480 px/s
-	var dmg_applied := false
-	var enemy_ref := self
-
-	var scr := GDScript.new()
-	scr.source_code = """
-extends Node2D
-var from_pos: Vector2
-var end_pos: Vector2
-var elapsed: float = 0.0
-var travel_time: float = 1.0
-var missed: bool = false
-var dmg: int = 4
-var enemy_ref: Node = null
-var dmg_applied: bool = false
-
-func _process(delta: float) -> void:
-	elapsed += delta
-	var t := clampf(elapsed / travel_time, 0.0, 1.0)
-	global_position = from_pos.lerp(end_pos, t)
-	queue_redraw()
-	if not missed and not dmg_applied and t >= 1.0:
-		dmg_applied = true
-		if is_instance_valid(enemy_ref) and enemy_ref.has_method("take_damage"):
-			enemy_ref.take_damage(dmg)
-	if t >= 1.0:
-		queue_free()
-
-func _draw() -> void:
-	var dir := Vector2(1, 0)
-	draw_rect(Rect2(-5, -1, 10, 2), Color(0.95, 0.85, 0.4, 0.9))
-"""
-	proj.set_script(scr)
+	# Polygon2D rectangle — no script needed, animated purely with Tween
+	var proj := Polygon2D.new()
+	proj.polygon = PackedVector2Array([
+		Vector2(-7, -1.5), Vector2(7, -1.5), Vector2(7, 1.5), Vector2(-7, 1.5)
+	])
+	proj.color = Color(0.95, 0.85, 0.4, 0.9)
+	proj.z_index = 20
 	proj.global_position = from_pos
-	var dir_angle := dir.angle()
-	proj.rotation = dir_angle
-	proj.set("from_pos", from_pos)
-	proj.set("end_pos", end_pos)
-	proj.set("travel_time", travel_time)
-	proj.set("missed", missed)
-	proj.set("dmg", dmg)
-	proj.set("enemy_ref", enemy_ref)
+	proj.rotation = dir.angle()
 	get_tree().current_scene.add_child(proj)
+
+	var travel_time := from_pos.distance_to(end_pos) / 600.0
+	var enemy_ref := self
+	var tw := proj.create_tween()
+	tw.tween_property(proj, "global_position", end_pos, travel_time)
+	tw.tween_callback(func():
+		if not missed and is_instance_valid(enemy_ref) and enemy_ref.has_method("take_damage"):
+			enemy_ref.take_damage(dmg)
+		proj.queue_free()
+	)
 
 func _show_miss_text() -> void:
 	var lbl := Label.new()

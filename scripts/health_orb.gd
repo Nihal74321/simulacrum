@@ -21,9 +21,3 @@ func _draw() -> void:
 		var fill_col := Color(0.9, 0.15, 0.15, 1.0) if ratio > 0.25 else Color(1.0, 0.4, 0.0, 1.0)
 		draw_colored_polygon(pts, fill_col)
 	draw_arc(c, RADIUS - 0.5, 0.0, TAU, 64, Color(0.55, 0.15, 0.15, 0.85), 1.5)
-	var font := ThemeDB.fallback_font
-	var fs := 7
-	var s := str(current_hp)
-	var tw := font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-	draw_string(font, c + Vector2(-tw * 0.5, float(fs) * 0.4), s,
-		HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1.0, 1.0, 1.0, 1.0))

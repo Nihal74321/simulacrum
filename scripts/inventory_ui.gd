@@ -4,6 +4,10 @@ extends CanvasLayer
 const GEAR_ITEMS: Array[String] = ["Pickaxe", "Axe", "Sickle", "Broadaxe", "Great Axe", "Crossbow"]
 # Weapons: go to weapon slot, not hotbar
 const WEAPONS: Array[String] = ["Great Axe", "Broadaxe", "Crossbow"]
+# Boon item names — appear in gear tab with Equip button
+const BOON_ITEMS: Array[String] = [
+	"Boon of the Traveller", "Boon of Judgement", "Boon of the Hunter", "Iron Gauntlet",
+]
 # Items with no equip button at all
 const UNEQUIPPABLE: Array[String] = [
 	"Knowledge Fragment", "Boon Fragment",
@@ -371,6 +375,9 @@ func _refresh() -> void:
 		if item["name"] in GEAR_ITEMS and _matches_search(item["name"]):
 			_build_item_row(_inv_container, item, true)
 			any_gear = true
+		elif item["name"] in BOON_ITEMS and _matches_search(item["name"]):
+			_build_boon_inv_row(_inv_container, item["name"])
+			any_gear = true
 	# When searching, also show boon matches inline in gear tab
 	if not _search_text.is_empty():
 		for b in GameManager.active_boons:
@@ -392,7 +399,8 @@ func _refresh() -> void:
 		c.queue_free()
 	var any_items := false
 	for item in Inventory.items:
-		if item["name"] not in GEAR_ITEMS and _matches_search(item["name"]):
+		if item["name"] not in GEAR_ITEMS and item["name"] not in BOON_ITEMS \
+				and _matches_search(item["name"]):
 			_build_item_row(_items_container, item, false)
 			any_items = true
 	# When searching, also show boon matches inline in items tab
@@ -539,6 +547,26 @@ func _build_item_row(container: VBoxContainer, item: Dictionary, show_equip: boo
 		var cap := item_name
 		btn.pressed.connect(func(): _auto_equip(cap); _refresh())
 		row.add_child(btn)
+
+func _build_boon_inv_row(container: VBoxContainer, boon_name: String) -> void:
+	var row := HBoxContainer.new()
+	container.add_child(row)
+	var lbl := Label.new()
+	lbl.text = "  ◆ %s" % boon_name
+	lbl.add_theme_color_override("font_color", Color(0.75, 0.5, 1.0, 1.0))
+	lbl.add_theme_font_size_override("font_size", 10)
+	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(lbl)
+	var equip_btn := Button.new()
+	equip_btn.text = "Equip"
+	equip_btn.add_theme_font_size_override("font_size", 8)
+	equip_btn.disabled = GameManager.dungeon_active
+	var cap := boon_name
+	equip_btn.pressed.connect(func():
+		GameManager.grant_boon(cap)
+		_refresh()
+	)
+	row.add_child(equip_btn)
 
 func _clear_search() -> void:
 	_search_text = ""

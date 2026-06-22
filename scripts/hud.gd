@@ -111,6 +111,7 @@ func _ready() -> void:
 	GameManager.player_healed.connect(_on_player_healed)
 	GameManager.secondary_task_changed.connect(_on_secondary_task_changed)
 	GameManager.hotbar_changed.connect(_refresh_hotbar)
+	GameManager.godmode_changed.connect(func(enabled: bool): godmode_label.visible = enabled)
 	Inventory.inventory_changed.connect(_update_stats)
 	Inventory.inventory_changed.connect(_refresh_hotbar)
 	_refresh_hotbar()
@@ -142,6 +143,16 @@ func _build_ui() -> void:
 	style_fill.bg_color = Color(0.2, 0.8, 0.9, 1.0)
 	sprint_bar.add_theme_stylebox_override("fill", style_fill)
 	add_child(sprint_bar)
+
+	# ── Godmode label (top-left) ──────────────────────────────────────────────
+	godmode_label = Label.new()
+	godmode_label.text = "GOD MODE"
+	godmode_label.visible = GameManager.godmode
+	godmode_label.add_theme_color_override("font_color", Color(0.75, 0.3, 1.0, 1.0))
+	godmode_label.add_theme_font_size_override("font_size", 10)
+	godmode_label.position = Vector2(8, 8)
+	godmode_label.z_index = 20
+	add_child(godmode_label)
 
 	# ── Feedback label (centered, auto-width) ─────────────────────────────────
 	var feedback_bg := ColorRect.new()
@@ -1246,6 +1257,8 @@ func _process_command(cmd: String) -> void:
 				GameManager.placement_requested.emit(canonical)
 			else:
 				Inventory.add_item({"name": canonical, "description": "", "quantity": 1})
+				if canonical == "Boon Fragment":
+					GameManager.boon_fragments += 1
 				GameManager.item_picked_up.emit(canonical, 1)
 				GameManager.feedback_requested.emit("Received: " + canonical)
 	elif lower == "simulacrum new" or lower == "sim new":
@@ -1298,7 +1311,11 @@ func _process_command(cmd: String) -> void:
 				return
 		GameManager.feedback_requested.emit("Usage: speed [1-5]")
 	elif lower == "save":
-		SaveManager.save_game(true)
+		var sm := get_node_or_null("/root/SaveManager")
+		if sm and sm.has_method("save_game"):
+			sm.save_game(true)
+		else:
+			GameManager.feedback_requested.emit("Save not available.")
 	elif lower == "clear":
 		_show_clear_protection_ui()
 	elif lower.begins_with("spawn "):
@@ -1349,7 +1366,9 @@ func _show_clear_protection_ui() -> void:
 	confirm_btn.add_theme_color_override("font_color", Color(1.0, 0.4, 0.3, 1))
 	confirm_btn.pressed.connect(func():
 		canvas.queue_free()
-		SaveManager.clear_save()
+		var sm2 := get_node_or_null("/root/SaveManager")
+		if sm2 and sm2.has_method("clear_save"):
+			sm2.clear_save()
 		get_tree().change_scene_to_file("res://scenes/main.tscn")
 	)
 	panel.add_child(confirm_btn)

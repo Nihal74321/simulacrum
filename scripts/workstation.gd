@@ -37,8 +37,6 @@ var _hovered: bool = false
 var _ui_open: bool = false
 var _panel: Node = null
 var _label_alpha: float = 0.0
-# Fragments placed into the circle this session (not yet claimed)
-var _fragments_pending: int = 0
 
 func _ready() -> void:
 	z_index = 10
@@ -113,7 +111,7 @@ func _place_fragment() -> void:
 		return
 	GameManager.boon_fragments -= 1
 	Inventory.remove_item("Boon Fragment", 1)
-	_fragments_pending += 1
+	GameManager.workstation_fragments_pending += 1
 	_close_ui()
 	_open_ui()
 
@@ -130,7 +128,7 @@ func _claim_boon() -> void:
 		GameManager.feedback_requested.emit("All boons already claimed.")
 		return
 	Inventory.remove_item("Knowledge Fragment", CLAIM_KF_COST)
-	_fragments_pending = 0
+	GameManager.workstation_fragments_pending = 0
 	var chosen: String = available[randi() % available.size()]
 	GameManager.grant_boon(chosen)
 	_close_ui()
@@ -174,7 +172,7 @@ func _build_panel() -> Node:
 	# 4-quarter circle
 	var BoonCircleScript := load("res://scripts/boon_circle.gd")
 	var circle: Control = BoonCircleScript.new()
-	circle.set("filled_quarters", _fragments_pending)
+	circle.set("filled_quarters", GameManager.workstation_fragments_pending)
 	var csize := 108.0  # 2 × RADIUS
 	circle.anchor_left = 0.5
 	circle.anchor_right = 0.5
@@ -187,7 +185,7 @@ func _build_panel() -> Node:
 	panel.add_child(circle)
 
 	# Action button
-	var can_claim := _fragments_pending >= FRAGMENT_COST
+	var can_claim := GameManager.workstation_fragments_pending >= FRAGMENT_COST
 	var action_btn := Button.new()
 	if can_claim:
 		action_btn.text = "Claim Random Boon  (%d KF)" % CLAIM_KF_COST
@@ -195,7 +193,7 @@ func _build_panel() -> Node:
 		action_btn.disabled = kf_have < CLAIM_KF_COST
 		action_btn.pressed.connect(func(): _claim_boon())
 	else:
-		action_btn.text = "Place Boon Fragment  (%d → circle)" % _fragments_pending
+		action_btn.text = "Place Boon Fragment  (%d → circle)" % GameManager.workstation_fragments_pending
 		action_btn.disabled = GameManager.boon_fragments < 1
 		action_btn.pressed.connect(func(): _place_fragment())
 	action_btn.position = Vector2(90, 180)

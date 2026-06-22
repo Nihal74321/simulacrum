@@ -73,6 +73,7 @@ func toggle_tracked_recipe(recipe: Dictionary) -> void:
 # Boons
 var active_boons: Array[String] = []
 var boon_fragments: int = 0
+var workstation_fragments_pending: int = 0
 
 # Save-system restore targets (set by SaveManager.load_game, consumed by player._ready)
 var _save_restore_pos: Vector2    = Vector2(INF, INF)
@@ -86,12 +87,21 @@ func has_boon(boon_id: String) -> bool:
 	return active_boons.has(boon_id)
 
 func grant_boon(boon_id: String) -> void:
-	if not active_boons.has(boon_id):
-		active_boons.append(boon_id)
-		feedback_requested.emit("Boon gained: %s" % boon_id)
+	# Enforce one boon at a time — push current one back to inventory
+	if not active_boons.is_empty():
+		var old := active_boons[0]
+		if old == boon_id:
+			return
+		active_boons.clear()
+		Inventory.add_item({"name": old, "description": "A powerful boon.", "quantity": 1})
+	active_boons.append(boon_id)
+	# If the boon was sitting in inventory (equipped from there), consume it
+	Inventory.remove_item(boon_id, 1)
+	feedback_requested.emit("Boon equipped: %s" % boon_id)
 
 func remove_boon(boon_id: String) -> void:
 	active_boons.erase(boon_id)
+	Inventory.add_item({"name": boon_id, "description": "A powerful boon.", "quantity": 1})
 
 func get_speed_multiplier() -> float:
 	var base: float = float(speed_level) / 3.0  # level 3 = 1.0x, 1 = 0.33x, 5 = 1.67x
