@@ -101,7 +101,7 @@ func _on_mouse_input(_v: Node, event: InputEvent, _shape: int) -> void:
 				var vp_size := get_viewport().get_visible_rect().size
 				attack_range = vp_size.length() * 0.5 / zoom_x
 				damage = 4
-				cooldown = 2.0
+				cooldown = 1.25
 			_:
 				GameManager.feedback_requested.emit("I can't attack with that.")
 				return
@@ -118,6 +118,9 @@ func _on_mouse_input(_v: Node, event: InputEvent, _shape: int) -> void:
 		if p.has_method("request_attack"):
 			if not p.request_attack(self, cooldown):
 				return
+		# Crossbow: cancel any pending movement so the player stays stationary
+		if weapon == "Crossbow":
+			p.set("move_target", Vector2(INF, INF))
 		var final_dmg := damage
 		if GameManager.has_boon("Iron Gauntlet"):
 			final_dmg = int(final_dmg * 1.50)

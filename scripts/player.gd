@@ -63,7 +63,8 @@ var _dying: bool = false
 
 var _attacking: bool = false
 var _attack_timer: float = 0.0
-var _attack_cd: float = 0.0       # 1s cooldown between player attacks
+var _attack_cd: float = 0.0       # seconds remaining on cooldown
+var _attack_cd_max: float = 0.0   # full cooldown duration (for bar ratio)
 var _dead: bool = false           # locked out of movement until respawn
 var _dying_anim: bool = false
 var _rolling: bool = false
@@ -197,12 +198,25 @@ func request_attack(target: Node2D, cooldown_override: float = -1.0) -> bool:
 	if GameManager.has_boon("Iron Gauntlet"):
 		cd *= 1.5
 	_attack_cd = cd
+	_attack_cd_max = cd
+	queue_redraw()
 	if target != null:
 		var dir := target.global_position - global_position
 		if dir.length_squared() > 0.01:
 			_cur_angle = _snap_angle(dir)
 	trigger_attack_anim()
 	return true
+
+func _draw() -> void:
+	if _attack_cd > 0.0 and _attack_cd_max > 0.0:
+		const BAR_W: float = 16.0
+		const BAR_H: float = 2.5
+		const BAR_Y: float = -34.0
+		var ratio := clampf(_attack_cd / _attack_cd_max, 0.0, 1.0)
+		var bx := -BAR_W * 0.5
+		draw_rect(Rect2(bx, BAR_Y, BAR_W, BAR_H), Color(0.1, 0.1, 0.1, 0.85))
+		if ratio > 0.0:
+			draw_rect(Rect2(bx, BAR_Y, BAR_W * ratio, BAR_H), Color(0.95, 0.75, 0.15, 0.9))
 
 func _snap_angle(vel: Vector2) -> int:
 	var deg := fmod(rad_to_deg(vel.angle()) + DIR_OFFSET + 720.0, 360.0)
@@ -260,6 +274,8 @@ func _try_aoe_attack() -> void:
 	if GameManager.has_boon("Iron Gauntlet"):
 		cd *= 1.5
 	_attack_cd = cd
+	_attack_cd_max = cd
+	queue_redraw()
 	# Face the cursor for the swing
 	var aim := get_global_mouse_position() - global_position
 	if aim.length_squared() > 0.01:
@@ -376,6 +392,10 @@ func _physics_process(delta: float) -> void:
 
 	if _attack_cd > 0.0:
 		_attack_cd -= delta
+		queue_redraw()
+	elif _attack_cd_max > 0.0:
+		_attack_cd_max = 0.0
+		queue_redraw()
 
 	# Boon of Judgement — tick timer and fire AOE
 	if GameManager.has_boon("Boon of Judgement"):
