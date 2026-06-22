@@ -83,13 +83,15 @@ var _task_overview_open: bool = false
 var _task_overview_dirty: bool = false
 var _task_rows: VBoxContainer = null  # direct reference to avoid find_child issues
 const _ALL_ITEMS: Array[String] = [
-	"Pickaxe", "Hammer",
+	"Pickaxe", "Hammer", "Axe", "Sickle",
+	"Great Axe", "Crossbow",
+	"Healing Vial", "String",
 	"Log", "Rock", "Coal", "Heated Coal",
 	"Iron Ore", "Copper Ore", "Gold Ore", "Crystal Shard",
 	"Heated Iron Ore", "Heated Copper Ore", "Heated Gold Ore",
 	"Iron Plate", "Copper Plate", "Gold Plate",
 	"Steel",
-	"Knowledge Fragment",
+	"Knowledge Fragment", "Boon Fragment",
 	"Forge", "Anvil", "Extrusion Machine",
 ]
 
@@ -245,13 +247,17 @@ func _build_ui() -> void:
 	_help_label.autowrap_mode = TextServer.AUTOWRAP_WORD
 	_help_label.text = (
 		"godmode — toggle god mode\n"
-		+ "speed [1-5] — movement speed (3=default)\n"
-		+ "gamespeed [1-50] — timer speed (1=default)\n"
+		+ "speed [1-5] — movement speed   gamespeed [1-50] — game speed\n"
 		+ "give [item] / give all / help give — items\n"
+		+ "  items: pickaxe hammer axe sickle great axe crossbow\n"
+		+ "         healing vial string boon fragment knowledge fragment\n"
+		+ "         iron/copper/gold ore & plate  steel  coal  log  rock\n"
+		+ "save — manual save   clear — wipe save & restart\n"
+		+ "spawn enemy/miniboss/trapped/chest/chalice/barrel/vent/overworld_chest\n"
 		+ "sim new — enter Simulacrum   sim free — spawn portal\n"
 		+ "home new / home / home clear — manage warp point\n"
 		+ "task reset / next / finish — manage tasks\n"
-		+ "help on / off — toggle hints   SPACE — roll"
+		+ "help on / off — toggle hints   SPACE — roll   F — healing vial"
 	)
 	_help_label.visible = false
 	add_child(_help_label)
@@ -1335,9 +1341,14 @@ func _show_clear_protection_ui() -> void:
 	canvas.add_child(overlay)
 
 	var panel := Panel.new()
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	panel.position = Vector2(-180, -80)
-	panel.size = Vector2(360, 160)
+	panel.anchor_left   = 0.5
+	panel.anchor_right  = 0.5
+	panel.anchor_top    = 0.5
+	panel.anchor_bottom = 0.5
+	panel.offset_left   = -180.0
+	panel.offset_right  =  180.0
+	panel.offset_top    = -80.0
+	panel.offset_bottom =  80.0
 	canvas.add_child(panel)
 
 	var title := Label.new()
@@ -1369,6 +1380,7 @@ func _show_clear_protection_ui() -> void:
 		var sm2 := get_node_or_null("/root/SaveManager")
 		if sm2 and sm2.has_method("clear_save"):
 			sm2.clear_save()
+		_reset_game_state()
 		get_tree().change_scene_to_file("res://scenes/main.tscn")
 	)
 	panel.add_child(confirm_btn)
@@ -1477,6 +1489,35 @@ func _process_spawn(what: String) -> void:
 				GameManager.error_requested.emit("Missing: res://scenes/ruins_chest.tscn")
 		_:
 			GameManager.feedback_requested.emit("Usage: /spawn enemy|miniboss|trapped|chest|chalice|barrel|vent|overworld_chest")
+
+func _reset_game_state() -> void:
+	# Wipe inventory
+	Inventory.items.clear()
+	Inventory.inventory_changed.emit()
+	# Reset all GameManager persistent state to defaults
+	GameManager.task_index                    = 0
+	GameManager.hotbar                        = ["", "", "", "", ""]
+	GameManager.hotbar_selected               = 0
+	GameManager.equipped_weapon               = ""
+	GameManager.active_boons.clear()
+	GameManager.boon_fragments                = 0
+	GameManager.workstation_fragments_pending = 0
+	GameManager.sim_iterations                = 0
+	GameManager.sim_engine_fixed              = false
+	GameManager.dungeon_active                = false
+	GameManager.home_position                 = Vector2(INF, INF)
+	GameManager.placed_machines.clear()
+	GameManager.forge_states.clear()
+	GameManager.vent_states.clear()
+	GameManager.tracked_recipes.clear()
+	GameManager._save_restore_pos             = Vector2(INF, INF)
+	GameManager._save_restore_health          = -1
+	GameManager._godmode_inv_snapshot.clear()
+	GameManager._godmode_was_active           = false
+	if GameManager.godmode:
+		GameManager.godmode = false
+		GameManager.godmode_changed.emit(false)
+	Engine.time_scale = 1.0
 
 func _check_task_conditions() -> void:
 	var ti := GameManager.task_index
@@ -1964,6 +2005,8 @@ func _refresh_hint_page() -> void:
 		var qty := give_qty
 		btn.pressed.connect(func():
 			Inventory.add_item({"name": captured, "description": "", "quantity": qty})
+			if captured == "Boon Fragment":
+				GameManager.boon_fragments += qty
 			GameManager.item_picked_up.emit(captured, qty)
 			GameManager.feedback_requested.emit("Received ×%d: %s" % [qty, captured])
 		)
