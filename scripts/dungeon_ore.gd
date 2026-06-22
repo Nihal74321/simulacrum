@@ -85,7 +85,6 @@ func _on_mouse_input(_v: Node, event: InputEvent, _shape: int) -> void:
 	var count := randi_range(1, 5) if is_rare else randi_range(5, 20)
 	Inventory.add_item({"name": result, "description": "", "quantity": count})
 	GameManager.item_picked_up.emit(result, count)
-	GameManager.feedback_requested.emit("Mined %d %s." % [count, result])
 	queue_free()
 
 func _ore_drop(p_name: String) -> String:

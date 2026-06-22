@@ -3,9 +3,12 @@ extends Node2D
 const INTERACTION_RANGE: float = 90.0
 const HOVER_RADIUS: float = 26.0
 const LABEL_FADE_SPEED: float = 2.5
-const HEAT_TIME: float = 45.0
+const HEAT_TIME: float = 40.0
 const STEEL_TIME: float = 300.0
 const FUEL_PER_COAL: int = 100
+# Batch sizes the forge accepts and the time each batch takes
+const BATCH_TIME: Dictionary = {1: 40.0, 10: 200.0, 100: 1000.0}
+const BATCH_QTYS: Array[int] = [1, 10, 100]
 
 const ORE_TO_HEATED: Dictionary = {
 	"Iron Ore":    "Heated Iron Ore",
@@ -23,10 +26,12 @@ var _name_label: Label
 var _fuel_charges: int = 0
 var _processing: bool = false
 var _process_timer: float = 0.0
-var _queued_recipe: String = ""   # "heat_iron", "heat_copper", "heat_gold", "steel"
+var _queued_recipe: String = ""   # ore name, or "steel"
 var _queued_output: String = ""
+var _queued_qty: int = 1
 var _ready_to_collect: bool = false
 var _collect_item: String = ""
+var _collect_qty: int = 1
 
 # GUI
 var _gui_canvas: CanvasLayer
@@ -49,8 +54,10 @@ func _save_state() -> void:
 		total_time = _get_recipe_time() if _processing else 0.0,
 		queued_recipe = _queued_recipe,
 		queued_output = _queued_output,
+		queued_qty = _queued_qty,
 		ready_to_collect = _ready_to_collect,
 		collect_item = _collect_item,
+		collect_qty = _collect_qty,
 		fuel_charges = _fuel_charges,
 		saved_at = Time.get_unix_time_from_system(),
 		gamespeed = GameManager.gamespeed_level,
@@ -65,6 +72,8 @@ func _restore_state() -> void:
 	_fuel_charges = int(s.get("fuel_charges", 0))
 	_queued_recipe = str(s.get("queued_recipe", ""))
 	_queued_output = str(s.get("queued_output", ""))
+	_queued_qty = int(s.get("queued_qty", 1))
+	_collect_qty = int(s.get("collect_qty", 1))
 	if bool(s.get("ready_to_collect", false)):
 		_ready_to_collect = true
 		_collect_item = str(s.get("collect_item", ""))
@@ -144,7 +153,7 @@ func _build_gui() -> void:
 	add_child(_gui_canvas)
 
 	_gui_panel = Panel.new()
-	_gui_panel.size = Vector2(220, 230)
+	_gui_panel.size = Vector2(238, 270)
 	_gui_canvas.add_child(_gui_panel)
 
 	var title := Label.new()
@@ -177,44 +186,54 @@ func _build_gui() -> void:
 	_gui_panel.add_child(sep)
 
 	var recipes_lbl := Label.new()
-	recipes_lbl.text = "Recipes:"
+	recipes_lbl.text = "Heat ore — ×1 (40s) / ×10 (200s) / ×100 (1000s):"
 	recipes_lbl.position = Vector2(8, 70)
-	recipes_lbl.add_theme_font_size_override("font_size", 8)
+	recipes_lbl.add_theme_font_size_override("font_size", 7)
 	_gui_panel.add_child(recipes_lbl)
 
-	# Heat ore buttons
+	# Per-ore batch buttons (×1 / ×10 / ×100)
 	var recipe_names: Array[String] = ["Iron Ore", "Copper Ore", "Gold Ore"]
 	for i in recipe_names.size():
 		var ore_name: String = recipe_names[i]
-		var btn := Button.new()
-		btn.name = "Btn_" + ore_name.replace(" ", "")
-		btn.text = "Heat %s (45s)" % ore_name
-		btn.position = Vector2(8, 88 + i * 26)
-		btn.size = Vector2(200, 22)
-		btn.add_theme_font_size_override("font_size", 8)
-		var captured := ore_name
-		btn.pressed.connect(func(): _start_recipe(captured))
-		_gui_panel.add_child(btn)
+		var row_y: float = 86.0 + i * 26.0
+		var name_lbl := Label.new()
+		name_lbl.text = ore_name.replace(" Ore", "")
+		name_lbl.position = Vector2(8, row_y + 3)
+		name_lbl.add_theme_font_size_override("font_size", 8)
+		_gui_panel.add_child(name_lbl)
+		var xs := [Vector2(58, 46), Vector2(106, 50), Vector2(158, 56)]
+		for q in BATCH_QTYS.size():
+			var qty: int = BATCH_QTYS[q]
+			var btn := Button.new()
+			btn.name = "Btn_%s_%d" % [ore_name.replace(" ", ""), qty]
+			btn.text = "×%d" % qty
+			btn.position = Vector2(xs[q].x, row_y)
+			btn.size = Vector2(xs[q].y - 4.0, 22)
+			btn.add_theme_font_size_override("font_size", 8)
+			var cap_ore := ore_name
+			var cap_qty := qty
+			btn.pressed.connect(func(): _start_recipe(cap_ore, cap_qty))
+			_gui_panel.add_child(btn)
 
 	var steel_btn := Button.new()
 	steel_btn.name = "SteelBtn"
 	steel_btn.text = "Steel: 1 Coal + 9 Iron Ore (5 min)"
-	steel_btn.position = Vector2(8, 166)
-	steel_btn.size = Vector2(200, 22)
+	steel_btn.position = Vector2(8, 168)
+	steel_btn.size = Vector2(206, 22)
 	steel_btn.add_theme_font_size_override("font_size", 7)
 	steel_btn.pressed.connect(func(): _start_steel())
 	_gui_panel.add_child(steel_btn)
 
 	var status_lbl := Label.new()
 	status_lbl.name = "StatusLabel"
-	status_lbl.position = Vector2(8, 192)
+	status_lbl.position = Vector2(8, 196)
 	status_lbl.add_theme_font_size_override("font_size", 8)
 	_gui_panel.add_child(status_lbl)
 
 	var collect_btn := Button.new()
 	collect_btn.name = "CollectBtn"
 	collect_btn.text = "Collect"
-	collect_btn.position = Vector2(8, 210)
+	collect_btn.position = Vector2(8, 218)
 	collect_btn.size = Vector2(100, 22)
 	collect_btn.add_theme_font_size_override("font_size", 8)
 	collect_btn.pressed.connect(_collect)
@@ -222,7 +241,7 @@ func _build_gui() -> void:
 
 	var hint_lbl := Label.new()
 	hint_lbl.text = "[ ESC ] close"
-	hint_lbl.position = Vector2(120, 214)
+	hint_lbl.position = Vector2(120, 222)
 	hint_lbl.add_theme_font_size_override("font_size", 7)
 	hint_lbl.add_theme_color_override("font_color", Color(0.4, 0.4, 0.4, 1.0))
 	_gui_panel.add_child(hint_lbl)
@@ -276,7 +295,9 @@ func _draw() -> void:
 		draw_arc(Vector2(0, -10), 28.0, 0.0, TAU, 24, Color(0.2, 0.9, 0.3, 1), 2.0)
 
 func _get_recipe_time() -> float:
-	return STEEL_TIME if _queued_recipe == "steel" else HEAT_TIME
+	if _queued_recipe == "steel":
+		return STEEL_TIME
+	return BATCH_TIME.get(_queued_qty, HEAT_TIME)
 
 func _refresh_gui() -> void:
 	if _gui_panel == null:
@@ -297,10 +318,12 @@ func _refresh_gui() -> void:
 	_gui_panel.get_node("CollectBtn").visible = _ready_to_collect
 	var busy := _processing or _ready_to_collect
 	for ore_name in ["Iron Ore", "Copper Ore", "Gold Ore"]:
-		var btn_name: String = "Btn_" + ore_name.replace(" ", "")
-		var btn := _gui_panel.get_node(btn_name) as Button
-		if btn != null:
-			btn.disabled = busy or _fuel_charges == 0 or Inventory.get_item_count(ore_name) == 0
+		var have := Inventory.get_item_count(ore_name)
+		for qty in BATCH_QTYS:
+			var btn_name: String = "Btn_%s_%d" % [ore_name.replace(" ", ""), qty]
+			var btn := _gui_panel.get_node_or_null(btn_name) as Button
+			if btn != null:
+				btn.disabled = busy or _fuel_charges < qty or have < qty
 	_gui_panel.get_node("SteelBtn").disabled = busy or _fuel_charges == 0 \
 		or Inventory.get_item_count("Coal") == 0 or Inventory.get_item_count("Iron Ore") < 9
 
@@ -311,23 +334,24 @@ func _add_fuel() -> void:
 	_fuel_charges += FUEL_PER_COAL
 	GameManager.feedback_requested.emit("Forge fueled: %d charges." % _fuel_charges)
 
-func _start_recipe(ore_name: String) -> void:
+func _start_recipe(ore_name: String, qty: int = 1) -> void:
 	if _processing or _ready_to_collect:
 		return
-	if _fuel_charges == 0:
-		GameManager.feedback_requested.emit("Forge needs Heated Coal fuel.")
+	if _fuel_charges < qty:
+		GameManager.feedback_requested.emit("Forge needs %d Heated Coal charges." % qty)
 		return
-	if Inventory.get_item_count(ore_name) == 0:
-		GameManager.feedback_requested.emit("No %s in inventory." % ore_name)
+	if Inventory.get_item_count(ore_name) < qty:
+		GameManager.feedback_requested.emit("Need %d %s." % [qty, ore_name])
 		return
-	Inventory.remove_item(ore_name, 1)
-	_fuel_charges = max(0, _fuel_charges - 1)
+	Inventory.remove_item(ore_name, qty)
+	_fuel_charges = max(0, _fuel_charges - qty)
 	_queued_recipe = ore_name
 	_queued_output = ORE_TO_HEATED.get(ore_name, "")
+	_queued_qty = qty
 	_processing = true
-	_process_timer = HEAT_TIME
+	_process_timer = BATCH_TIME.get(qty, HEAT_TIME)
 	_save_state()
-	GameManager.feedback_requested.emit("Heating %s…" % ore_name)
+	GameManager.feedback_requested.emit("Heating %d %s…" % [qty, ore_name])
 	GameManager.secondary_task_changed.emit()
 	queue_redraw()
 
@@ -345,6 +369,7 @@ func _start_steel() -> void:
 	_fuel_charges = max(0, _fuel_charges - 1)
 	_queued_recipe = "steel"
 	_queued_output = "Steel"
+	_queued_qty = 1
 	_processing = true
 	_process_timer = STEEL_TIME
 	_save_state()
@@ -357,6 +382,7 @@ func _finish_recipe() -> void:
 	_process_timer = 0.0
 	_ready_to_collect = true
 	_collect_item = _queued_output
+	_collect_qty = _queued_qty
 	_queued_recipe = ""
 	_queued_output = ""
 	_save_state()
@@ -367,11 +393,12 @@ func _finish_recipe() -> void:
 func _collect() -> void:
 	if not _ready_to_collect:
 		return
-	Inventory.add_item({"name": _collect_item, "description": "Forged item.", "quantity": 1})
-	GameManager.item_picked_up.emit(_collect_item, 1)
-	GameManager.feedback_requested.emit("Collected: %s." % _collect_item)
+	Inventory.add_item({"name": _collect_item, "description": "Forged item.", "quantity": _collect_qty})
+	GameManager.item_picked_up.emit(_collect_item, _collect_qty)
+	GameManager.feedback_requested.emit("Collected: %d %s." % [_collect_qty, _collect_item])
 	_ready_to_collect = false
 	_collect_item = ""
+	_collect_qty = 1
 	_save_state()
 	queue_redraw()
 

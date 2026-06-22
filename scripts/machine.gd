@@ -42,6 +42,9 @@ func _ready() -> void:
 	add_to_group("machines")
 	z_index = 10
 	broken = starts_broken
+	# Simulacrum Engine repair persists across scene reloads
+	if machine_name == "Simulacrum Engine" and GameManager.sim_engine_fixed:
+		broken = false
 	if GameManager.godmode:
 		broken = false
 	_update_visual()
@@ -183,6 +186,7 @@ func _try_repair() -> void:
 		return
 	Inventory.remove_item("Iron Plate", SIM_IRON_PLATES_NEEDED)
 	broken = false
+	GameManager.sim_engine_fixed = true
 	_update_visual()
 	_close_repair_gui()
 	GameManager.feedback_requested.emit("Simulacrum Engine repaired!")
@@ -303,15 +307,8 @@ func _on_mouse_input(_v: Node, event: InputEvent, _shape: int) -> void:
 			interacted.emit(machine_name)
 
 func _input(event: InputEvent) -> void:
-	if event.is_action_pressed("ui_cancel"):
-		if _repair_open:
-			_close_repair_gui()
-			get_viewport().set_input_as_handled()
-			return
-		if _sim_open:
-			_close_sim_gui()
-			get_viewport().set_input_as_handled()
-			return
+	# ESC handling for these GUIs is centralised in hud.gd so it doesn't race
+	# with the global pause toggle.
 	if event is InputEventMouseButton \
 			and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT \
 			and (event as InputEventMouseButton).pressed:

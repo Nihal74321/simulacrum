@@ -9,6 +9,7 @@ const HALL_HALF:   int  = 1    # hallway is 3 tiles wide (centre ±1)
 const ENEMY_SCENE:  PackedScene = preload("res://scenes/enemy.tscn")
 const CHEST_SCRIPT               = preload("res://scripts/chest.gd")
 const DUNGEON_ORE_SCRIPT         = preload("res://scripts/dungeon_ore.gd")
+const BREAKABLE_SCRIPT           = preload("res://scripts/breakable.gd")
 
 const ORE_TYPES: Array[Dictionary] = [
 	{name="Iron Deposit",      color=Color(0.55, 0.55, 0.58)},
@@ -118,8 +119,14 @@ func _add_boundary() -> void:
 			cs.position = tilemap.to_global(tilemap.map_to_local(nb))
 			border_body.add_child(cs)
 
+static func _room_count_for_iteration(iter: int) -> int:
+	if iter <= 1:   return 4
+	if iter <= 5:   return randi_range(4, 10)
+	if iter <= 10:  return randi_range(8, 20)
+	return randi_range(15, 35)
+
 func _place_rooms() -> void:
-	var total_rooms := rng.randi_range(10, 30)
+	var total_rooms := _room_count_for_iteration(GameManager.sim_iterations)
 	var occupied: Dictionary = {}
 	var frontier: Array[Vector2i] = []
 	_rooms.append({grid = Vector2i(0, 0), type = "entry"})
@@ -155,11 +162,13 @@ func _place_rooms() -> void:
 		_rooms[_rooms.size() - 1].type = "exit"
 
 func _pick_room_type() -> String:
+	var trapped_chance: int = 15 if GameManager.has_boon("Monkeypaw") else 8
 	var r := rng.randi_range(0, 99)
-	if   r < 40: return "combat"
-	elif r < 65: return "loot"
-	elif r < 80: return "ores"
-	else:        return "safe"
+	if r < trapped_chance:         return "trapped"
+	elif r < trapped_chance + 35:  return "combat"
+	elif r < trapped_chance + 55:  return "loot"
+	elif r < trapped_chance + 70:  return "ores"
+	else:                          return "safe"
 
 # ── Tile filling ──────────────────────────────────────────────────────────────
 
@@ -209,13 +218,31 @@ func _fill_hallway(a: Vector2i, b: Vector2i) -> void:
 func _populate_rooms() -> void:
 	for room in _rooms:
 		match room.type:
-			"combat": _spawn_enemies(room.grid)
-			"loot":   _spawn_chests(room.grid)
-			"ores":   _spawn_ores(room.grid)
-			"exit":   _spawn_exit(room.grid)
+			"combat":  _spawn_enemies(room.grid)
+			"loot":
+				_spawn_chests(room.grid)
+				if rng.randi_range(0, 1) == 0:
+					_spawn_enemies(room.grid)
+			"ores":    _spawn_ores(room.grid)
+			"exit":    _spawn_exit(room.grid)
+			"trapped": _spawn_trapped_chest_room(room.grid)
+		# Scatter a few KF breakables in every non-entry/exit room
+		if room.type in ["combat", "loot", "ores"]:
+			_spawn_breakables(room.grid)
+
+func _spawn_breakables(grid: Vector2i) -> void:
+	var kinds := ["Chalice", "Coin Pile", "Barrel"]
+	var count := rng.randi_range(1, 4)
+	for _i in count:
+		var b: Node2D = BREAKABLE_SCRIPT.new()
+		b.set("kind", kinds[rng.randi_range(0, kinds.size() - 1)])
+		b.position = _random_room_world(grid)
+		add_child(b)
 
 func _spawn_enemies(grid: Vector2i) -> void:
 	var count := rng.randi_range(2, 5)
+	if GameManager.has_boon("Monkeypaw"):
+		count = int(count * 1.75)
 	for _i in count:
 		var enemy: Node2D = ENEMY_SCENE.instantiate()
 		enemy.position = _random_room_world(grid)
@@ -240,6 +267,99 @@ func _spawn_chests(grid: Vector2i) -> void:
 		var chest: Node2D = CHEST_SCRIPT.new()
 		chest.position = _tile_to_world(corner.x + jitter_x, corner.y + jitter_y)
 		add_child(chest)
+
+func _spawn_trapped_chest_room(grid: Vector2i) -> void:
+	var cx := grid.x * GRID_STEP
+	var cy := grid.y * GRID_STEP
+	var center_world := _tile_to_world(cx, cy)
+
+	# Dummy chests (non-interactive, visual only)
+	var corner_offset: int = ROOM_HALF - 1
+	var corners: Array[Vector2i] = [
+		Vector2i(cx - corner_offset, cy - corner_offset),
+		Vector2i(cx + corner_offset, cy - corner_offset),
+		Vector2i(cx - corner_offset, cy + corner_offset),
+		Vector2i(cx + corner_offset, cy + corner_offset),
+	]
+	for c in corners:
+		var dummy: Node2D = CHEST_SCRIPT.new()
+		dummy.set_meta("dummy", true)
+		dummy.position = _tile_to_world(c.x, c.y)
+		add_child(dummy)
+
+	# Invisible wall (disabled until triggered)
+	var wall_body := StaticBody2D.new()
+	wall_body.position = center_world + Vector2(0, -(ROOM_HALF * 16 + 8))
+	var wall_shape := CollisionShape2D.new()
+	var wall_rect := RectangleShape2D.new()
+	wall_rect.size = Vector2((ROOM_HALF * 2 + 1) * 32.0, 8.0)
+	wall_shape.shape = wall_rect
+	wall_body.add_child(wall_shape)
+	wall_body.collision_layer = 1
+	wall_body.process_mode = Node.PROCESS_MODE_DISABLED
+	add_child(wall_body)
+
+	# Trigger area — fires once when player steps in
+	var trigger := Area2D.new()
+	trigger.collision_layer = 0
+	trigger.collision_mask  = 1
+	var tshape := CollisionShape2D.new()
+	var tcircle := CircleShape2D.new()
+	tcircle.radius = 24.0
+	tshape.shape = tcircle
+	trigger.add_child(tshape)
+	trigger.position = center_world
+	add_child(trigger)
+
+	var triggered := false
+	var enemies_alive: Array[Node] = []
+
+	trigger.body_entered.connect(func(body: Node2D):
+		if triggered or not body.is_in_group("player"):
+			return
+		triggered = true
+		trigger.queue_free()
+
+		# Subtitle
+		var subtitle_msgs := ["Uh oh.", "Something's wrong"]
+		GameManager.feedback_requested.emit(subtitle_msgs[rng.randi_range(0, subtitle_msgs.size() - 1)])
+
+		# Enable the wall
+		wall_body.process_mode = Node.PROCESS_MODE_INHERIT
+
+		# Spawn 7 regular enemies + 1 miniboss
+		for _i in 7:
+			var e: Node2D = ENEMY_SCENE.instantiate()
+			e.position = _random_room_world(grid)
+			add_child(e)
+			enemies_alive.append(e)
+		var boss: Node2D = ENEMY_SCENE.instantiate()
+		boss.add_to_group("minibosses")
+		boss.set("max_health", 25)
+		boss.set("attack_damage", 6)
+		boss.set("miss_chance", 0.05)
+		boss.set("body_color", Color(0.8, 0.0, 0.8, 1))
+		boss.position = _random_room_world(grid)
+		add_child(boss)
+		enemies_alive.append(boss)
+
+		# Use each enemy's tree_exited signal to count kills; when all dead, spawn reward
+		var remaining: Array[int] = [enemies_alive.size()]
+		var reward_spawned: Array[bool] = [false]
+		for e in enemies_alive:
+			e.tree_exited.connect(func():
+				remaining[0] -= 1
+				if remaining[0] <= 0 and not reward_spawned[0]:
+					reward_spawned[0] = true
+					wall_body.process_mode = Node.PROCESS_MODE_DISABLED
+					var chest := CHEST_SCRIPT.new()
+					chest.position = _tile_to_world(grid.x * GRID_STEP, grid.y * GRID_STEP)
+					chest.set_meta("reward_kf_min", 250)
+					chest.set_meta("reward_kf_max", 750)
+					chest.set_meta("reward_guaranteed_boon", true)
+					add_child(chest)
+			)
+	)
 
 func _spawn_ores(grid: Vector2i) -> void:
 	var count := rng.randi_range(8, 15)
@@ -301,6 +421,19 @@ func _draw():
 	lbl.add_theme_color_override("font_color", Color(0.2, 1.0, 0.4, 1))
 	lbl.z_index = 20
 	add_child(lbl)
+
+	# Cursed Knowledge: always-visible marker + 2-4 minibosses guarding
+	if GameManager.has_boon("Cursed Knowledge"):
+		var guard_count := rng.randi_range(2, 4)
+		for _g in guard_count:
+			var guard: Node2D = ENEMY_SCENE.instantiate()
+			guard.add_to_group("minibosses")
+			guard.set("max_health", 25)
+			guard.set("attack_damage", 6)
+			guard.set("miss_chance", 0.05)
+			guard.set("body_color", Color(0.6, 0.0, 0.8, 1))
+			guard.position = _random_room_world(grid)
+			add_child(guard)
 
 func _add_vignette() -> void:
 	var canvas := CanvasLayer.new()

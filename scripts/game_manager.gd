@@ -8,11 +8,14 @@ signal dungeon_free_requested
 signal feedback_requested(message: String)
 signal error_requested(message: String)
 signal player_died
+signal player_damaged
+signal player_healed
 signal item_picked_up(item_name: String, quantity: int)
 signal secondary_task_changed
 signal placement_requested(machine_name: String)
 signal hotbar_changed
 
+var pause_on_defocus: bool = true
 var godmode: bool = false
 var gamespeed_level: int = 1
 var speed_level: int = 3
@@ -44,6 +47,51 @@ var placed_machines: Array = []    # [{type: String, pos: Vector2}]
 var forge_crafted: bool = false
 var extrusion_machine_crafted: bool = false
 var anvil_crafted: bool = false
+var workstation_crafted: bool = false
+
+# Simulacrum Engine repair persists across scene changes
+var sim_engine_fixed: bool = false
+
+# Recipes the player has flagged with [TRACK] — shown in the HUD task panel
+# Each entry: {name: String, ingredients: Array[{item, qty}]}
+var tracked_recipes: Array = []
+
+func is_recipe_tracked(recipe_name: String) -> bool:
+	for r in tracked_recipes:
+		if r.get("name", "") == recipe_name:
+			return true
+	return false
+
+func toggle_tracked_recipe(recipe: Dictionary) -> void:
+	var rname: String = recipe.get("name", "")
+	for i in tracked_recipes.size():
+		if tracked_recipes[i].get("name", "") == rname:
+			tracked_recipes.remove_at(i)
+			return
+	tracked_recipes.append({name = rname, ingredients = recipe.get("ingredients", [])})
+
+# Boons
+var active_boons: Array[String] = []
+var boon_fragments: int = 0
+
+# Save-system restore targets (set by SaveManager.load_game, consumed by player._ready)
+var _save_restore_pos: Vector2    = Vector2(INF, INF)
+var _save_restore_health: int     = -1
+
+# Godmode inventory snapshot — saved before giving all items
+var _godmode_inv_snapshot: Array  = []
+var _godmode_was_active: bool     = false
+
+func has_boon(boon_id: String) -> bool:
+	return active_boons.has(boon_id)
+
+func grant_boon(boon_id: String) -> void:
+	if not active_boons.has(boon_id):
+		active_boons.append(boon_id)
+		feedback_requested.emit("Boon gained: %s" % boon_id)
+
+func remove_boon(boon_id: String) -> void:
+	active_boons.erase(boon_id)
 
 func get_speed_multiplier() -> float:
 	var base: float = float(speed_level) / 3.0  # level 3 = 1.0x, 1 = 0.33x, 5 = 1.67x
@@ -65,14 +113,31 @@ func get_sim_cost() -> int:
 
 const _GODMODE_ITEMS: Array = [
 	["Pickaxe", 1], ["Hammer", 5], ["Axe", 1], ["Sickle", 1], ["Great Axe", 1],
+	["Crossbow", 1],
 	["Log", 999], ["Rock", 999], ["Coal", 999], ["Heated Coal", 99],
 	["Iron Ore", 999], ["Copper Ore", 999], ["Gold Ore", 999],
 	["Heated Iron Ore", 99], ["Heated Copper Ore", 99], ["Heated Gold Ore", 99],
 	["Iron Plate", 999], ["Copper Plate", 999], ["Gold Plate", 999],
 	["Steel", 99], ["Knowledge Fragment", 9999],
+	["Healing Vial", 50], ["String", 50],
 ]
 
 func set_godmode(enabled: bool) -> void:
+	if enabled and not _godmode_was_active:
+		# Snapshot current inventory before flooding it
+		_godmode_inv_snapshot = []
+		for item in Inventory.items:
+			_godmode_inv_snapshot.append(item.duplicate())
+		_godmode_was_active = true
+	elif not enabled and _godmode_was_active:
+		# Restore pre-godmode inventory
+		Inventory.items.clear()
+		for item in _godmode_inv_snapshot:
+			Inventory.items.append(item.duplicate())
+		Inventory.inventory_changed.emit()
+		_godmode_inv_snapshot.clear()
+		_godmode_was_active = false
+
 	godmode = enabled
 	godmode_changed.emit(enabled)
 	if enabled:

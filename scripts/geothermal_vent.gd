@@ -2,8 +2,7 @@ extends Node2D
 
 const INTERACTION_RANGE: float = 85.0
 const VISIBLE_RANGE: float = 280.0
-const PROCESSING_TIME: float = 300.0
-const COAL_TIME: float = 90.0
+const COAL_TIME: float = 25.0
 const ORES_REQUIRED: int = 5
 const HOVER_RADIUS: float = 22.0
 const LABEL_FADE_SPEED: float = 2.5
@@ -11,11 +10,21 @@ const BAR_W: float = 44.0
 const BAR_H: float = 4.0
 const BAR_Y: float = -42.0
 
+# Tier 1 = basic/transition metals (1m45s), Tier 2 = rare earths (2m30s), Tier 3 (4m)
 const ORE_TO_PLATE: Dictionary = {
-	"Iron Ore":    "Iron Plate",
-	"Copper Ore":  "Copper Plate",
-	"Gold Ore":    "Gold Plate",
+	"Iron Ore":       "Iron Plate",
+	"Copper Ore":     "Copper Plate",
+	"Gold Ore":       "Gold Plate",
+	"Aluminium Ore":  "Aluminium Plate",
+	"Tin Ore":        "Tin Plate",
+	"Lead Ore":       "Lead Plate",
+	"Manganese Ore":  "Manganese Plate",
 }
+const ORE_TIER: Dictionary = {
+	"Iron Ore": 1, "Copper Ore": 1, "Gold Ore": 1,
+	"Aluminium Ore": 1, "Tin Ore": 1, "Lead Ore": 1, "Manganese Ore": 1,
+}
+const TIER_TIME: Dictionary = { 1: 105.0, 2: 150.0, 3: 240.0 }
 const IDLE_MSGS: Array[String] = [
 	"That looks hot.",
 	"That could melt iron…",
@@ -160,14 +169,14 @@ func _build_gui() -> void:
 	_gui_panel.add_child(title)
 
 	var recipe_hint := Label.new()
-	recipe_hint.text = "5 ore → 1 plate  (5 min)"
+	recipe_hint.text = "5 ore → 1 plate  (T1: 1m45s | T2: 2m30s | T3: 4m)"
 	recipe_hint.position = Vector2(8, 22)
 	recipe_hint.add_theme_font_size_override("font_size", 7)
 	recipe_hint.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55, 1.0))
 	_gui_panel.add_child(recipe_hint)
 
 	var recipe_hint2 := Label.new()
-	recipe_hint2.text = "1 Coal → 1 Heated Coal  (1.5 min)"
+	recipe_hint2.text = "1 Coal → 1 Heated Coal  (25s)"
 	recipe_hint2.position = Vector2(8, 32)
 	recipe_hint2.add_theme_font_size_override("font_size", 7)
 	recipe_hint2.add_theme_color_override("font_color", Color(0.55, 0.55, 0.55, 1.0))
@@ -252,8 +261,14 @@ func _process(delta: float) -> void:
 		if player != null and global_position.distance_to(player.global_position) > INTERACTION_RANGE + 30.0:
 			_close_gui()
 
+func _get_smelt_time(ore: String) -> float:
+	var tier: int = ORE_TIER.get(ore, 1)
+	return TIER_TIME.get(tier, 105.0)
+
 func _get_total_time() -> float:
-	return COAL_TIME if _current_recipe == "coal" else PROCESSING_TIME
+	if _current_recipe == "coal":
+		return COAL_TIME
+	return _get_smelt_time(_queued_ore)
 
 func _draw() -> void:
 	if _hovered:
@@ -333,7 +348,7 @@ func _refresh_gui_rows() -> void:
 		collect_btn.text = "Collect %s" % _collect_item
 		status_lbl.visible = false
 		var lbl := Label.new()
-		lbl.text = "%s ready to collect!" % _collect_item
+		lbl.text = "%s ready to collect" % _collect_item
 		lbl.add_theme_color_override("font_color", Color(0.2, 0.9, 0.3, 1.0))
 		lbl.add_theme_font_size_override("font_size", 9)
 		_gui_rows.add_child(lbl)
@@ -433,7 +448,7 @@ func _start_smelting(ore: String) -> void:
 	_queued_ore = ore
 	_queued_plate = ORE_TO_PLATE.get(ore, "")
 	_processing = true
-	_process_timer = PROCESSING_TIME
+	_process_timer = _get_smelt_time(ore)
 	_ready_to_collect = false
 	_collect_item = ""
 	_complete_flash = 0.0
@@ -461,7 +476,6 @@ func _finish() -> void:
 	_queued_plate = ""
 	_current_recipe = ""
 	_save_state()
-	GameManager.feedback_requested.emit("%s ready — collect from vent." % _collect_item)
 	GameManager.secondary_task_changed.emit()
 	_gui_dirty = true
 	queue_redraw()

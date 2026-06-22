@@ -19,6 +19,7 @@ config/icon="res://icon.svg"
 
 GameManager="*res://scripts/game_manager.gd"
 Inventory="*res://scripts/inventory.gd"
+SaveManager="*res://scripts/save_manager.gd"
 
 [display]
 

@@ -58,28 +58,45 @@ func _draw() -> void:
 	var tm: TileMapLayer = get_tree().get_first_node_in_group("tilemap") as TileMapLayer
 	if tm != null:
 		var in_dungeon := GameManager.dungeon_active
-		for cell in tm.get_used_cells():
-			# In dungeon: only show explored tiles
-			if in_dungeon and not GameManager.dungeon_explored_tiles.has(cell):
-				continue
-			var world_pos: Vector2 = tm.to_global(tm.map_to_local(cell))
-			var rel := (world_pos - origin) * scale
-			var pt := center + rel
-			if not bounds.has_point(pt):
-				continue
-			var atlas := tm.get_cell_atlas_coords(cell)
-			var col: Color
-			if atlas == Vector2i(0, 1):  # water
-				col = Color(0.1, 0.25, 0.55, 0.7)
-			elif atlas == Vector2i(5, 1):  # ash
-				col = Color(0.25, 0.25, 0.25, 0.7)
-			elif atlas == Vector2i(6, 0):  # dirt / dungeon floor
-				col = Color(0.35, 0.22, 0.10, 0.7)
-			elif in_dungeon:  # dungeon floor tiles
-				col = Color(0.30, 0.28, 0.35, 0.85)
-			else:  # grass
-				col = Color(0.15, 0.30, 0.12, 0.7)
-			draw_rect(Rect2(pt - Vector2(1.5, 1.5), Vector2(3.0, 3.0)), col)
+		if in_dungeon:
+			for cell in tm.get_used_cells():
+				if not GameManager.dungeon_explored_tiles.has(cell):
+					continue
+				var world_pos: Vector2 = tm.to_global(tm.map_to_local(cell))
+				var rel := (world_pos - origin) * scale
+				var pt := center + rel
+				if not bounds.has_point(pt):
+					continue
+				var atlas := tm.get_cell_atlas_coords(cell)
+				var col: Color
+				if atlas == Vector2i(5, 1):
+					col = Color(0.25, 0.25, 0.25, 0.7)
+				elif atlas == Vector2i(6, 0):
+					col = Color(0.35, 0.22, 0.10, 0.7)
+				else:
+					col = Color(0.30, 0.28, 0.35, 0.85)
+				draw_rect(Rect2(pt - Vector2(1.5, 1.5), Vector2(3.0, 3.0)), col)
+		else:
+			# Overworld: draw solid grass rectangle for the world bounds
+			const HALF: int = 75
+			var grass_col := Color(0.15, 0.30, 0.12, 0.7)
+			var water_col := Color(0.1, 0.25, 0.55, 0.7)
+			var ash_col   := Color(0.25, 0.25, 0.25, 0.7)
+			for gx in range(-HALF, HALF + 1):
+				for gy in range(-HALF, HALF + 1):
+					var world_pos: Vector2 = tm.to_global(tm.map_to_local(Vector2i(gx, gy)))
+					var rel := (world_pos - origin) * scale
+					var pt := center + rel
+					if not bounds.has_point(pt):
+						continue
+					var cell_v := Vector2i(gx, gy)
+					var main_node := get_tree().get_first_node_in_group("main_world")
+					var col: Color = grass_col
+					if main_node != null and main_node.has_method("_is_water_cell") and main_node._is_water_cell(cell_v):
+						col = water_col
+					elif tm.get_cell_atlas_coords(cell_v) == Vector2i(5, 1):
+						col = ash_col
+					draw_rect(Rect2(pt - Vector2(1.5, 1.5), Vector2(3.0, 3.0)), col)
 
 	for poi in get_tree().get_nodes_in_group("pois"):
 		var rel := ((poi as Node2D).global_position - origin) * scale

@@ -108,6 +108,11 @@ func _on_mouse_input(_v: Node, event: InputEvent, _shape: int) -> void:
 
 	Inventory.add_item({"name": "Rock", "description": "A chunk of stone.", "quantity": ROCKS_PER_HIT})
 	GameManager.item_picked_up.emit("Rock", ROCKS_PER_HIT)
+	# 5% chance for big stone to also drop 5-10 iron ore
+	if big and randf() < 0.05:
+		var iron_qty := randi_range(5, 10)
+		Inventory.add_item({"name": "Iron Ore", "description": "Ore found in stone.", "quantity": iron_qty})
+		GameManager.item_picked_up.emit("Iron Ore", iron_qty)
 	_hits_remaining -= 1
 	if _hits_remaining <= 0:
 		queue_free()

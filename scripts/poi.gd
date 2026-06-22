@@ -91,7 +91,6 @@ func _on_mouse_input(_v: Node, event: InputEvent, _shape: int) -> void:
 			"quantity": count,
 		})
 		GameManager.item_picked_up.emit(ore, count)
-		GameManager.feedback_requested.emit("Mined %d %s." % [count, ore])
 		queue_free()
 	else:
 		GameManager.feedback_requested.emit(EXAMINE_MSGS.get(poi_name, "Nothing more to see here."))

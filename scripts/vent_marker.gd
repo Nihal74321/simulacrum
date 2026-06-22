@@ -52,13 +52,13 @@ func _draw() -> void:
 	var edge_pt := center + dir * t
 	var col := Color(0.2, 0.9, 0.3, 0.9) if is_complete else Color(1.0, 0.55, 0.12, 0.9)
 
-	var perp := Vector2(-dir.y, dir.x) * 8.0
+	var perp := Vector2(-dir.y, dir.x) * 24.0
 	draw_colored_polygon(PackedVector2Array([
-		edge_pt + dir * 14.0,
-		edge_pt - dir * 4.0 + perp,
-		edge_pt - dir * 4.0 - perp,
+		edge_pt + dir * 42.0,
+		edge_pt - dir * 12.0 + perp,
+		edge_pt - dir * 12.0 - perp,
 	]), col)
-	draw_arc(edge_pt, 4.0, 0.0, TAU, 10, col, 2.0)
+	draw_arc(edge_pt, 12.0, 0.0, TAU, 10, col, 2.0)
 
 	if is_complete and not complete_plate.is_empty():
 		var font := ThemeDB.fallback_font

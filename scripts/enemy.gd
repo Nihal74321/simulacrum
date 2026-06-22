@@ -3,11 +3,17 @@ extends CharacterBody2D
 const SPEED: float = 60.0
 const DETECTION_RANGE: float = 120.0
 const ATTACK_RANGE: float = 18.0
-const ATTACK_DAMAGE: int = 2
 const ATTACK_COOLDOWN: float = 1.0
 const PLAYER_ATTACK_DAMAGE: int = 5
+
+# Instance-level stats (override via set() for minibosses)
+var attack_damage: int = 2
+var miss_chance: float = 0.25
 # Weapon attack ranges (px from player centre to enemy centre)
-const SWORD_RANGE: float = 40.0   # ~2.5 tiles
+const SWORD_RANGE: float = 48.0      # Great Axe: 3-tile radius
+const BROADAXE_RANGE: float = 32.0   # Broadaxe: 2-tile radius
+const CROSSBOW_RANGE: float = 560.0  # Crossbow: 35-tile radius
+const HUNTER_RANGE_BONUS: float = 16.0  # Boon of the Hunter: +1 tile
 const HOVER_RADIUS: float = 13.0
 # Body bounds: (-6.4,-9.6) to (6.4,9.6) — 20% smaller than original
 const OUTLINE_RECT: Rect2 = Rect2(-7, -10, 14, 20)
@@ -79,20 +85,111 @@ func _on_mouse_input(_v: Node, event: InputEvent, _shape: int) -> void:
 			return
 		var attack_range: float
 		var damage: int
+		var cooldown: float = -1.0  # -1 = use player default (1s)
 		match weapon:
 			"Great Axe":
 				attack_range = SWORD_RANGE
-				damage = PLAYER_ATTACK_DAMAGE
+				damage = 14
+			"Broadaxe":
+				attack_range = BROADAXE_RANGE
+				damage = 10
+			"Crossbow":
+				attack_range = CROSSBOW_RANGE
+				damage = 4
+				cooldown = 2.0
 			_:
 				GameManager.feedback_requested.emit("I can't attack with that.")
 				return
+		# Boon of the Hunter: +1 tile melee range (not crossbow)
+		if weapon != "Crossbow" and GameManager.has_boon("Boon of the Hunter"):
+			attack_range += HUNTER_RANGE_BONUS
 		var p := get_tree().get_first_node_in_group("player") as Node2D
 		if p == null:
 			return
 		if global_position.distance_to(p.global_position) > attack_range:
 			GameManager.feedback_requested.emit("Too far away.")
 			return
-		take_damage(damage)
+		# Request attack — enforces the cooldown and turns the player to face us.
+		if p.has_method("request_attack"):
+			if not p.request_attack(self, cooldown):
+				return
+		var final_dmg := damage
+		if GameManager.has_boon("Iron Gauntlet"):
+			final_dmg = int(final_dmg * 1.50)
+		# Crossbow: projectile visual, 10% miss chance; damage applied on arrival
+		if weapon == "Crossbow":
+			var missed := randf() < 0.10
+			_fire_crossbow_projectile(p.global_position, missed, final_dmg)
+			if missed:
+				_show_miss_text()
+			return
+		take_damage(final_dmg)
+
+func _fire_crossbow_projectile(from_pos: Vector2, missed: bool, dmg: int = 4) -> void:
+	var proj := Node2D.new()
+	proj.z_index = 20
+	var to_pos := global_position  # enemy position = target
+	var dir := (to_pos - from_pos).normalized()
+	# Miss: fly 80px past the target
+	var end_pos := (to_pos + dir * 80.0) if missed else to_pos
+
+	var elapsed := 0.0
+	var travel_time := from_pos.distance_to(end_pos) / 480.0  # 480 px/s
+	var dmg_applied := false
+	var enemy_ref := self
+
+	var scr := GDScript.new()
+	scr.source_code = """
+extends Node2D
+var from_pos: Vector2
+var end_pos: Vector2
+var elapsed: float = 0.0
+var travel_time: float = 1.0
+var missed: bool = false
+var dmg: int = 4
+var enemy_ref: Node = null
+var dmg_applied: bool = false
+
+func _process(delta: float) -> void:
+	elapsed += delta
+	var t := clampf(elapsed / travel_time, 0.0, 1.0)
+	global_position = from_pos.lerp(end_pos, t)
+	queue_redraw()
+	if not missed and not dmg_applied and t >= 1.0:
+		dmg_applied = true
+		if is_instance_valid(enemy_ref) and enemy_ref.has_method("take_damage"):
+			enemy_ref.take_damage(dmg)
+	if t >= 1.0:
+		queue_free()
+
+func _draw() -> void:
+	var dir := Vector2(1, 0)
+	draw_rect(Rect2(-5, -1, 10, 2), Color(0.95, 0.85, 0.4, 0.9))
+"""
+	proj.set_script(scr)
+	proj.global_position = from_pos
+	var dir_angle := dir.angle()
+	proj.rotation = dir_angle
+	proj.set("from_pos", from_pos)
+	proj.set("end_pos", end_pos)
+	proj.set("travel_time", travel_time)
+	proj.set("missed", missed)
+	proj.set("dmg", dmg)
+	proj.set("enemy_ref", enemy_ref)
+	get_tree().current_scene.add_child(proj)
+
+func _show_miss_text() -> void:
+	var lbl := Label.new()
+	lbl.text = "Miss!"
+	lbl.position = Vector2(-14, -22)
+	lbl.add_theme_font_size_override("font_size", 10)
+	lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2, 1.0))
+	lbl.z_index = 25
+	add_child(lbl)
+	var tw := create_tween()
+	tw.parallel().tween_property(lbl, "position:y", lbl.position.y - 20.0, 0.8)
+	tw.parallel().tween_property(lbl, "modulate:a", 0.0, 0.8)
+	tw.tween_callback(lbl.queue_free)
 
 func _physics_process(delta: float) -> void:
 	if player == null:
@@ -113,8 +210,13 @@ func _physics_process(delta: float) -> void:
 
 func _attack() -> void:
 	attack_timer = ATTACK_COOLDOWN
+	# Rolling always dodges an incoming hit
+	if player.has_method("is_dodging") and player.is_dodging():
+		return
+	if randf() < miss_chance:
+		return
 	if player.has_method("take_damage"):
-		player.take_damage(ATTACK_DAMAGE)
+		player.take_damage(attack_damage)
 
 func take_damage(amount: int) -> void:
 	var final_amount: int = amount * 999 if GameManager.godmode else amount
@@ -123,7 +225,7 @@ func take_damage(amount: int) -> void:
 		_die()
 
 func _die() -> void:
-	var kf_amount: int = 500 if is_in_group("bosses") else (100 if is_in_group("minibosses") else 50)
+	var kf_amount: int = 250 if is_in_group("bosses") else (randi_range(75, 150) if is_in_group("minibosses") else randi_range(50, 150))
 	Inventory.add_item({
 		"name": "Knowledge Fragment",
 		"description": "Crystallised memory from a slain simulacrum.",
